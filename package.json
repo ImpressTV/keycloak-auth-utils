@@ -1,6 +1,6 @@
 {
   "name": "keycloak-auth-utils",
-  "version": "0.0.14",
+  "version": "0.0.17",
   "description": "General Keycloak Utilities",
   "main": "index.js",
   "scripts": {
@@ -25,7 +25,21 @@
   },
   "repository": {
     "type": "git",
-    "url": "http://github.com/bobmcwhirter/keycloak-auth-utils.git"
+    "url": "https://github.com/ImpressTV/keycloak-auth-utils.git"
   },
-  "bugs": "http://github.com/bobmcwhirter/keycloak-auth-utils/issues"
+  "bugs": {
+    "url": "http://github.com/bobmcwhirter/keycloak-auth-utils/issues"
+  },
+  "homepage": "https://github.com/bobmcwhirter/keycloak-auth-utils",
+  "maintainers": [
+    {
+      "name": "martonw",
+      "email": "info@impresstv.com"
+    }
+  ],
+  "dist": {
+    "shasum": "f9e16f30c3d8e54041fb08cb29d9cbc4e12792f7",
+    "tarball": "http://registry.npmjs.org/keycloak-auth-utils/-/keycloak-auth-utils-0.0.17.tgz"
+  },
+  "directories": {}
 }

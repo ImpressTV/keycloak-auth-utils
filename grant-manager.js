@@ -20,7 +20,7 @@ var Q = require('q');
 
 var URL    = require('url');
 var http   = require('http');
-var https   = require('https');
+var https  = require('https');
 var crypto = require('crypto');
 
 var Form = require('./form');
@@ -127,24 +127,28 @@ GrantManager.prototype.obtainFromCode = function(request, code, sessionId, sessi
   var deferred = Q.defer();
   var self = this;
 
-  var redirectUri = encodeURIComponent( request.session.auth_redirect_uri );
+  var storeObj = request.session || request.cookies;
+  var redirectUri = encodeURIComponent( storeObj.auth_redirect_uri );
 
   var params = 'code=' + code + '&application_session_state=' + sessionId + '&redirect_uri=' + redirectUri + '&application_session_host=' + sessionHost;
 
   var options = URL.parse( this.realmUrl + '/tokens/access/codes' );
+  var protocol = http;
+
   options.method = 'POST';
   if ( options.protocol == 'https:' ) {
-    options.agent = new https.Agent();
+    protocol = https;
   } else {
-    options.agent = new http.Agent();
+    protocol = http;
   }
+
   options.headers = {
     'Content-Length': params.length,
     'Content-Type': 'application/x-www-form-urlencoded',
     'Authorization': 'Basic ' + new Buffer( this.clientId + ':' + this.secret ).toString('base64' ),
   };
 
-  var request = http.request( options, function(response) {
+  var request = protocol.request( options, function(response) {
     var json = '';
     response.on('data', function(d) {
       json += d.toString();
@@ -195,28 +199,30 @@ GrantManager.prototype.ensureFreshness = function(grant, callback) {
   var self = this;
   var deferred = Q.defer();
 
-  var opts = URL.parse( this.realmUrl + '/tokens/refresh' );
+  var options = URL.parse( this.realmUrl + '/tokens/refresh' );
 
-  opts.method = 'POST';
+  options.method = 'POST';
 
-  opts.headers = {
+  options.headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
   };
 
+  var protocol = http;
+
   if ( options.protocol == 'https:' ) {
-    options.agent = new https.Agent();
+    protocol = https;
   } else {
-    options.agent = new http.Agent();
+    protocol = http;
   }
 
-  opts.headers['Authorization'] = 'Basic ' + new Buffer( this.clientId + ':' + this.secret ).toString( 'base64' );
+  options.headers['Authorization'] = 'Basic ' + new Buffer( this.clientId + ':' + this.secret ).toString( 'base64' );
 
   var params = new Form({
     grant_type: 'refresh_token',
     refresh_token: grant.refresh_token.token,
   });
 
-  var request = http.request( opts, function(response) {
+  var request = protocol.request( options, function(response) {
     var json = '';
     response.on( 'data', function(d) {
       json += d.toString();
@@ -256,19 +262,19 @@ GrantManager.prototype.validateAccessToken = function(token, callback) {
   var options = URL.parse( url );
 
   options.method = 'GET';
-  
+
   var t;
-  
+
   if ( typeof token == 'string' ) {
     t = token;
   } else {
     t = token.token;
   }
-  
+
   var params = new Form({
     access_token: t,
   });
-  
+
   options.path = options.path + '?' + params.encode();
 
   var req = http.request( options, function(response) {
@@ -375,7 +381,7 @@ GrantManager.prototype.validateToken = function(token) {
     return;
   }
 
-  if ( token.content.issuedAt < this.notBefore ) {
+  if ( token.content.iat < this.notBefore ) {
     return;
   }
 
@@ -386,6 +392,60 @@ GrantManager.prototype.validateToken = function(token) {
   }
 
   return token;
+};
+
+GrantManager.prototype.getAccount = function(token, callback) {
+  var deferred = Q.defer();
+
+  var self = this;
+
+  var url = this.realmUrl + '/account';
+
+  var options = URL.parse( url );
+
+  options.method = 'GET';
+
+  var t;
+
+  if ( typeof token == 'string' ) {
+    t = token;
+  } else {
+    t = token.token;
+  }
+
+  var protocol = http;
+
+  if ( options.protocol == 'https:' ) {
+    protocol = https;
+  } else {
+    protocol = http;
+  }
+
+  options.headers = {
+    'Authorization': 'Bearer ' + t,
+    'Accept': 'application/json',
+  };
+
+  var req = protocol.request( options, function(response) {
+    if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+      return deferred.reject( "Error fetching account" );
+    }
+    var json = '';
+    response.on('data', function(d) {
+      json += d.toString();
+    });
+    response.on( 'end', function() {
+      var data = JSON.parse( json );
+      if ( data.error ) {
+        return deferred.reject( data );
+      }
+      return deferred.resolve( data );
+    });
+  });
+
+  req.end();
+
+  return deferred.promise.nodeify( callback );
 };
 
 module.exports = GrantManager;
